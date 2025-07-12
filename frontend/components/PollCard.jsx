@@ -4,12 +4,36 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../utils/api';
 
-const PollCard = ({ poll, onVote }) => {
+const PollCard = ({ poll: initialPoll, onVote }) => {
+  const [poll, setPoll] = useState(initialPoll);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [isVoting, setIsVoting] = useState(false);
-  const [hasVoted, setHasVoted] = useState(poll.hasVoted || false);
-  const [results, setResults] = useState(poll.results || []);
+  const [hasVoted, setHasVoted] = useState(initialPoll.hasVoted || false);
+  const [results, setResults] = useState(initialPoll.results || []);
+  const [userVotes, setUserVotes] = useState(initialPoll.userVotes || []);
   const router = useRouter();
+
+  // Fetch fresh poll data on mount and when poll ID changes
+  useEffect(() => {
+    fetchPollData();
+  }, [initialPoll._id]);
+
+  const fetchPollData = async () => {
+    try {
+      const response = await api.get(`/polls/${initialPoll._id}`);
+      const freshPoll = response.data.poll;
+      const freshResults = response.data.results;
+      const freshUserVotes = response.data.userVotes || [];
+      const freshHasVoted = response.data.hasVoted;
+      
+      setPoll(freshPoll);
+      setResults(freshResults);
+      setUserVotes(freshUserVotes);
+      setHasVoted(freshHasVoted);
+    } catch (error) {
+      console.error('Error fetching poll data:', error);
+    }
+  };
 
   const handleOptionClick = (optionIndex) => {
     if (hasVoted || poll.isExpired) return;
@@ -37,7 +61,10 @@ const PollCard = ({ poll, onVote }) => {
         optionIndexes: selectedOptions
       });
 
+      // Update with fresh data from database
+      setPoll(response.data.poll);
       setResults(response.data.results);
+      setUserVotes(response.data.userVotes);
       setHasVoted(true);
       setSelectedOptions([]);
       
@@ -135,7 +162,7 @@ const PollCard = ({ poll, onVote }) => {
       <div className="space-y-2 mb-4">
         {poll.options.map((option, index) => {
           const isSelected = selectedOptions.includes(index);
-          const hasVotedForThis = hasVoted && poll.userVotes?.includes(index);
+          const hasVotedForThis = hasVoted && userVotes.includes(index);
           const result = results.find(r => r.text === option.text);
           const percentage = result ? result.percentage : 0;
           const votes = result ? result.votes : 0;
@@ -156,37 +183,33 @@ const PollCard = ({ poll, onVote }) => {
               }`}
               onClick={() => handleOptionClick(index)}
             >
-              {/* Progress bar for voted polls */}
-              {(hasVoted || poll.isExpired) && (
-                <div className="absolute inset-0 bg-blue-100 rounded-lg opacity-20"
-                     style={{ width: `${percentage}%` }} />
-              )}
+              {/* Progress bar - always show for visual feedback */}
+              <div className="absolute inset-0 bg-blue-100 rounded-lg opacity-20"
+                   style={{ width: `${percentage}%` }} />
               
               <div className="relative z-10 flex justify-between items-center">
                 <span className="font-medium">{option.text}</span>
                 
-                {(hasVoted || poll.isExpired) && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">
-                      {votes} votes ({percentage}%)
-                    </span>
-                    {hasVotedForThis && (
-                      <span className="text-green-600">✓</span>
-                    )}
-                  </div>
-                )}
-                
-                {!hasVoted && !poll.isExpired && (
-                  <div className={`w-4 h-4 rounded border-2 ${
-                    isSelected
-                      ? 'bg-blue-500 border-blue-500'
-                      : 'border-gray-300'
-                  }`}>
-                    {isSelected && (
-                      <div className="w-2 h-2 bg-white rounded-full m-0.5" />
-                    )}
-                  </div>
-                )}
+                {/* Always show vote count and percentage */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">
+                    {votes} votes ({percentage}%)
+                  </span>
+                  {hasVotedForThis && (
+                    <span className="text-green-600">✓</span>
+                  )}
+                  {!hasVoted && !poll.isExpired && (
+                    <div className={`w-4 h-4 rounded border-2 ${
+                      isSelected
+                        ? 'bg-blue-500 border-blue-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {isSelected && (
+                        <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -195,12 +218,22 @@ const PollCard = ({ poll, onVote }) => {
 
       {/* Action buttons */}
       <div className="flex justify-between items-center">
-        <button
-          onClick={() => router.push(`/poll/${poll._id}`)}
-          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-        >
-          View Details
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => router.push(`/poll/${poll._id}`)}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            View Details
+          </button>
+          
+          <button
+            onClick={fetchPollData}
+            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+            title="Refresh poll data"
+          >
+            ↻ Refresh
+          </button>
+        </div>
         
         {!hasVoted && !poll.isExpired && (
           <button
