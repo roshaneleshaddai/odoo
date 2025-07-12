@@ -34,6 +34,14 @@ const Layout = ({ children }) => {
               >
                 Home
               </Link>
+              <Link 
+                href="/polls"
+                className={`text-gray-700 hover:text-gray-900 ${
+                  pathname.startsWith('/polls') ? 'font-semibold' : ''
+                }`}
+              >
+                Polls
+              </Link>
             </div>
 
             {/* Right Side - User Actions */}
@@ -88,6 +96,12 @@ const Layout = ({ children }) => {
                   className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
                 >
                   Home
+                </Link>
+                <Link
+                  href="/polls"
+                  className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+                >
+                  Polls
                 </Link>
                 {!user && (
                   <Link

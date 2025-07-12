@@ -1,11 +1,114 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
+import { api } from '../utils/api';
 
 const RichTextEditor = ({ value, onChange, placeholder }) => {
   const [mounted, setMounted] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef(null);
   const editorRef = useRef(null);
   const [quill, setQuill] = useState(null);
+
+  // Emoji categories and data
+  const emojiCategories = {
+    'Smileys & Emotion': [
+      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+      '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+      '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+      '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+      '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+      '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+      '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😯', '😦', '😧',
+      '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢',
+      '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '💩', '👻', '💀',
+      '☠️', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽',
+      '🙀', '😿', '😾', '🙈', '🙉', '🙊'
+    ],
+    'People & Body': [
+      '👶', '👧', '🧒', '👦', '👩', '🧑', '👨', '👵', '🧓', '👴',
+      '👮‍♀️', '👮', '👮‍♂️', '🕵️‍♀️', '🕵️', '🕵️‍♂️', '💂‍♀️', '💂', '💂‍♂️', '👷‍♀️',
+      '👷', '👷‍♂️', '🤴', '👸', '👳‍♀️', '👳', '👳‍♂️', '👲', '🧕', '🤵‍♀️',
+      '🤵', '🤵‍♂️', '👰‍♀️', '👰', '👰‍♂️', '🤰', '🤱', '👼', '🎅', '🤶',
+      '🦸‍♀️', '🦸', '🦸‍♂️', '🦹‍♀️', '🦹', '🦹‍♂️', '🧙‍♀️', '🧙', '🧙‍♂️', '🧚‍♀️',
+      '🧚', '🧚‍♂️', '🧛‍♀️', '🧛', '🧛‍♂️', '🧜‍♀️', '🧜', '🧜‍♂️', '🧝‍♀️', '🧝',
+      '🧝‍♂️', '🧞‍♀️', '🧞', '🧞‍♂️', '🧟‍♀️', '🧟', '🧟‍♂️', '🙍‍♀️', '🙍', '🙍‍♂️',
+      '🙎‍♀️', '🙎', '🙎‍♂️', '🙅‍♀️', '🙅', '🙅‍♂️', '🙆‍♀️', '🙆', '🙆‍♂️', '💁‍♀️',
+      '💁', '💁‍♂️', '🙋‍♀️', '🙋', '🙋‍♂️', '🙇‍♀️', '🙇', '🙇‍♂️', '🤦‍♀️', '🤦',
+      '🤦‍♂️', '🤷‍♀️', '🤷', '🤷‍♂️', '👩‍⚕️', '🧑‍⚕️', '👨‍⚕️', '👩‍🌾', '🧑‍🌾', '👨‍🌾',
+      '👩‍🍳', '🧑‍🍳', '👨‍🍳', '👩‍🎓', '🧑‍🎓', '👨‍🎓', '👩‍🎤', '🧑‍🎤', '👨‍🎤', '👩‍🏫',
+      '🧑‍🏫', '👨‍🏫', '👩‍🏭', '🧑‍🏭', '👨‍🏭', '👩‍💻', '🧑‍💻', '👨‍💻', '👩‍💼', '🧑‍💼',
+      '👨‍💼', '👩‍🔧', '🧑‍🔧', '👨‍🔧', '👩‍🔬', '🧑‍🔬', '👨‍🔬', '👩‍🎨', '🧑‍🎨', '👨‍🎨',
+      '👩‍🚒', '🧑‍🚒', '👨‍🚒', '👩‍✈️', '🧑‍✈️', '👨‍✈️', '👩‍🚀', '🧑‍🚀', '👨‍🚀', '👩‍⚖️',
+      '🧑‍⚖️', '👨‍⚖️', '👰‍♀️', '👰', '👰‍♂️', '🤵‍♀️', '🤵', '🤵‍♂️', '👸', '🤴',
+      '🥷', '🦹‍♀️', '🦹', '🦹‍♂️', '🦸‍♀️', '🦸', '🦸‍♂️', '🤶', '🎅', '👼',
+      '🤱', '🤰', '👰‍♂️', '👰', '👰‍♀️', '🤵‍♂️', '🤵', '🤵‍♀️', '👴', '🧓',
+      '👵', '👨', '🧑', '👩', '🧒', '👦', '👧', '👶'
+    ],
+    'Animals & Nature': [
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+      '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🐣',
+      '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛',
+      '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢',
+      '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡',
+      '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓',
+      '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃',
+      '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕',
+      '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🐓', '🦃', '🦚', '🦜', '🦢',
+      '🦩', '🦨', '🦦', '🦥', '🐁', '🐀', '🐇', '🐿️', '🦔', '🐉',
+      '🐲', '🌵', '🎄', '🌲', '🌳', '🌴', '🪵', '🌱', '🌿', '☘️',
+      '🍀', '🎍', '🪴', '🎋', '🍃', '🍂', '🍁', '🍄', '🌾', '💐',
+      '🌷', '🌹', '🥀', '🌺', '🌻', '🌼', '🌸', '🌼', '🌻', '🌺',
+      '🌹', '🥀', '🌷', '🌼', '🌸', '🌼', '🌻', '🌺', '🌹', '🥀',
+      '🌷', '🌼', '🌸', '🌼', '🌻', '🌺', '🌹', '🥀', '🌷', '🌼'
+    ],
+    'Food & Drink': [
+      '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈',
+      '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🥑', '🍆', '🥔',
+      '🥕', '🌽', '🌶️', '🫑', '🥒', '🥬', '🥦', '🧄', '🧅', '🥜',
+      '🌰', '🫘', '🫒', '🥑', '🥦', '🧄', '🧅', '🥜', '🌰', '🫘',
+      '🫒', '🥑', '🥦', '🧄', '🧅', '🥜', '🌰', '🫘', '🫒', '🥑',
+      '🥦', '🧄', '🧅', '🥜', '🌰', '🫘', '🫒', '🥑', '🥦', '🧄',
+      '🧅', '🥜', '🌰', '🫘', '🫒', '🥑', '🥦', '🧄', '🧅', '🥜',
+      '🌰', '🫘', '🫒', '🥑', '🥦', '🧄', '🧅', '🥜', '🌰', '🫘',
+      '🫒', '🥑', '🥦', '🧄', '🧅', '🥜', '🌰', '🫘', '🫒', '🥑',
+      '🥦', '🧄', '🧅', '🥜', '🌰', '🫘', '🫒', '🥑', '🥦', '🧄',
+      '🧅', '🥜', '🌰', '🫘', '🫒', '🥑', '🥦', '🧄', '🧅', '🥜',
+      '🌰', '🫘', '🫒', '🥑', '🥦', '🧄', '🧅', '🥜', '🌰', '🫘'
+    ],
+    'Activities': [
+      '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱',
+      '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁',
+      '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷️', '⛸️', '🥌',
+      '🎿', '⛷️', '🏂', '🪂', '🏋️‍♀️', '🏋️', '🏋️‍♂️', '🤼‍♀️', '🤼', '🤼‍♂️',
+      '🤸‍♀️', '🤸', '🤸‍♂️', '⛹️‍♀️', '⛹️', '⛹️‍♂️', '🤺', '🤾‍♀️', '🤾', '🤾‍♂️',
+      '🏊‍♀️', '🏊', '🏊‍♂️', '🚣‍♀️', '🚣', '🚣‍♂️', '🏄‍♀️', '🏄', '🏄‍♂️', '🚴‍♀️',
+      '🚴', '🚴‍♂️', '🚵‍♀️', '🚵', '🚵‍♂️', '🏇', '🧘‍♀️', '🧘', '🧘‍♂️', '🏄‍♀️',
+      '🏄', '🏄‍♂️', '🚣‍♀️', '🚣', '🚣‍♂️', '🏊‍♀️', '🏊', '🏊‍♂️', '🤾‍♀️', '🤾',
+      '🤾‍♂️', '🤺', '⛹️‍♀️', '⛹️', '⛹️‍♂️', '🤸‍♀️', '🤸', '🤸‍♂️', '🤼‍♀️', '🤼',
+      '🤼‍♂️', '🏋️‍♀️', '🏋️', '🏋️‍♂️', '🪂', '🏂', '⛷️', '🎿', '🥌', '⛸️',
+      '🛷️', '🛹', '🎽', '🥋', '🥊', '🤿', '🎣', '🏹', '🪁', '⛳',
+      '🥅', '🏏', '🥍', '🏑', '🏒', '🏸', '🏓', '🪀', '🎱', '🥏',
+      '🏉', '🏐', '🎾', '🥎', '⚾', '🏈', '🏀', '⚽'
+    ],
+    'Objects': [
+      '⌚', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️',
+      '🎮', '🎲', '🧩', '🎭', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹',
+      '🥁', '🪘', '🎸', '🪕', '🎺', '🎻', '🪗', '🎷', '🎺', '🎸',
+      '🪕', '🎻', '🪗', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎷',
+      '🎺', '🎸', '🪕', '🎻', '🪗', '🎷', '🎺', '🎸', '🪕', '🎻',
+      '🪗', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎷', '🎺', '🎸',
+      '🪕', '🎻', '🪗', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎷',
+      '🎺', '🎸', '🪕', '🎻', '🪗', '🎷', '🎺', '🎸', '🪕', '🎻',
+      '🪗', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎷', '🎺', '🎸',
+      '🪕', '🎻', '🪗', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎷',
+      '🎺', '🎸', '🪕', '🎻', '🪗', '🎷', '🎺', '🎸'
+    ]
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -17,7 +120,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
       import('quill').then((Quill) => {
         const QuillClass = Quill.default || Quill;
         
-        // Configure Quill
+        // Configure Quill with custom toolbar
         const toolbarOptions = [
           [{ 'header': [1, 2, 3, false] }],
           ['bold', 'italic', 'underline', 'strike'],
@@ -26,13 +129,24 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
           [{ 'color': [] }, { 'background': [] }],
           [{ 'align': [] }],
           ['link', 'image', 'code-block'],
+          ['emoji'], // Custom emoji button
           ['clean']
         ];
 
         const newQuill = new QuillClass(editorRef.current, {
           theme: 'snow',
           modules: {
-            toolbar: toolbarOptions,
+            toolbar: {
+              container: toolbarOptions,
+              handlers: {
+                emoji: function() {
+                  setShowEmojiPicker(!showEmojiPicker);
+                },
+                image: function() {
+                  setShowImageUpload(!showImageUpload);
+                }
+              }
+            },
             clipboard: {
               matchVisual: false
             }
@@ -64,7 +178,7 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
         setQuill(newQuill);
       }).catch(console.error);
     }
-  }, [mounted, quill, value, onChange, placeholder]);
+  }, [mounted, quill, value, onChange, placeholder, showEmojiPicker, showImageUpload]);
 
   // Update content when value prop changes
   useEffect(() => {
@@ -72,6 +186,91 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
       quill.root.innerHTML = value || '';
     }
   }, [value, quill]);
+
+  const insertEmoji = (emoji) => {
+    if (quill) {
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertText(range.index, emoji);
+        quill.setSelection(range.index + emoji.length);
+      } else {
+        quill.insertText(quill.getLength(), emoji);
+      }
+    }
+    setShowEmojiPicker(false);
+  };
+
+  const insertImage = (imageUrl) => {
+    if (quill && imageUrl) {
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, 'image', imageUrl);
+        quill.setSelection(range.index + 1);
+      } else {
+        quill.insertEmbed(quill.getLength(), 'image', imageUrl);
+      }
+    }
+    setShowImageUpload(false);
+    setImageUrl('');
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // Create FormData
+      const formData = new FormData();
+      formData.append('image', file);
+
+      // Upload to our backend API using axios instance
+      const response = await api.post('/upload/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+          }
+        },
+      });
+
+      insertImage(response.data.url);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleUrlSubmit = () => {
+    if (imageUrl.trim()) {
+      insertImage(imageUrl.trim());
+    }
+  };
 
   if (!mounted) {
     return (
@@ -89,8 +288,118 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
   }
 
   return (
-    <div className="border border-gray-300 rounded-lg">
+    <div className="border border-gray-300 rounded-lg relative">
       <div ref={editorRef} style={{ minHeight: '150px' }} />
+      
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+      
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-md max-h-96 overflow-y-auto top-full left-0">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-medium">Insert Emoji</h3>
+            <button
+              onClick={() => setShowEmojiPicker(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {Object.entries(emojiCategories).map(([category, emojis]) => (
+              <div key={category}>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">{category}</h4>
+                <div className="grid grid-cols-8 gap-1">
+                  {emojis.map((emoji, index) => (
+                    <button
+                      key={`${category}-${index}`}
+                      onClick={() => insertEmoji(emoji)}
+                      className="p-2 hover:bg-gray-100 rounded text-lg transition-colors"
+                      title={emoji}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Image Upload Modal */}
+      {showImageUpload && (
+        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-md top-full left-0">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-medium">Insert Image</h3>
+            <button
+              onClick={() => setShowImageUpload(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Upload from file */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Upload Image</h4>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? 'Uploading...' : 'Choose File'}
+              </button>
+              {uploading && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Uploading... {uploadProgress}%</p>
+                </div>
+              )}
+            </div>
+
+            {/* Or enter URL */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Or enter image URL</h4>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyPress={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                />
+                <button
+                  onClick={handleUrlSubmit}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                >
+                  Insert
+                </button>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-500">
+              Supported formats: JPG, PNG, GIF, WebP (max 5MB)
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         .ql-editor {
           min-height: 150px;
