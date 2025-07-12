@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Quill.js styles */
+@import 'react-quill/dist/quill.snow.css';
+
 /* Custom components and utilities */
 @layer components {
   .btn-primary {

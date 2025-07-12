@@ -240,9 +240,9 @@ export default function Home() {
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <div className="avatar bg-purple-600 avatar-sm">
-                            {question.author.username.charAt(0).toUpperCase()}
+                            {question.author?.username?.charAt(0)?.toUpperCase() || '?'}
                           </div>
-                          <span className="font-medium">{question.author.username}</span>
+                          <span className="font-medium">{question.author?.username || 'Anonymous'}</span>
                         </div>
                         <div className="text-xs md:text-sm">
                           {new Date(question.createdAt).toLocaleDateString()}

@@ -1,387 +1,234 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const RichTextEditor = ({ value, onChange, placeholder }) => {
+  const [mounted, setMounted] = useState(false);
   const editorRef = useRef(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showLinkInput, setShowLinkInput] = useState(false);
-  const [showImageInput, setShowImageInput] = useState(false);
-  const [linkUrl, setLinkUrl] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [quill, setQuill] = useState(null);
 
-  const execCommand = (command, value = null) => {
-    // Focus the editor first
-    editorRef.current.focus();
-    
-    // Execute the command
-    document.execCommand(command, false, value);
-    
-    // Update the value
-    if (onChange) {
-      onChange(editorRef.current.innerHTML);
-    }
-  };
-
-  const handleInput = () => {
-    if (onChange) {
-      onChange(editorRef.current.innerHTML);
-    }
-  };
-
-  const insertLink = () => {
-    if (linkUrl.trim()) {
-      editorRef.current.focus();
-      const selection = window.getSelection();
-      if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const link = document.createElement('a');
-        link.href = linkUrl;
-        link.textContent = linkUrl;
-        range.insertNode(link);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-      setLinkUrl('');
-      setShowLinkInput(false);
-      if (onChange) {
-        onChange(editorRef.current.innerHTML);
-      }
-    }
-  };
-
-  const insertImage = () => {
-    if (imageUrl.trim()) {
-      editorRef.current.focus();
-      const selection = window.getSelection();
-      if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.alt = 'Inserted image';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        range.insertNode(img);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-      setImageUrl('');
-      setShowImageInput(false);
-      if (onChange) {
-        onChange(editorRef.current.innerHTML);
-      }
-    }
-  };
-
-  const insertEmoji = (emoji) => {
-    editorRef.current.focus();
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const textNode = document.createTextNode(emoji);
-      range.insertNode(textNode);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-    if (onChange) {
-      onChange(editorRef.current.innerHTML);
-    }
-    setShowEmojiPicker(false);
-  };
-
-  const emojis = [
-    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
-    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
-    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
-    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
-    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
-    '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
-    '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😯', '😦', '😧',
-    '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢',
-    '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '💩', '👻', '💀',
-    '☠️', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽',
-    '🙀', '😿', '😾', '🙈', '🙉', '🙊', '👶', '👧', '🧒', '👦',
-    '👩', '🧑', '👨', '👵', '🧓', '👴', '👮‍♀️', '👮', '👮‍♂️', '🕵️‍♀️',
-    '🕵️', '🕵️‍♂️', '💂‍♀️', '💂', '💂‍♂️', '👷‍♀️', '👷', '👷‍♂️', '🤴', '👸',
-    '👳‍♀️', '👳', '👳‍♂️', '👲', '🧕', '🤵‍♀️', '🤵', '🤵‍♂️', '👰‍♀️', '👰',
-    '👰‍♂️', '🤰', '🤱', '👼', '🎅', '🤶', '🦸‍♀️', '🦸', '🦸‍♂️', '🦹‍♀️',
-    '🦹', '🦹‍♂️', '🧙‍♀️', '🧙', '🧙‍♂️', '🧚‍♀️', '🧚', '🧚‍♂️', '🧛‍♀️', '🧛',
-    '🧛‍♂️', '🧜‍♀️', '🧜', '🧜‍♂️', '🧝‍♀️', '🧝', '🧝‍♂️', '🧞‍♀️', '🧞', '🧞‍♂️',
-    '🧟‍♀️', '🧟', '🧟‍♂️', '🙍‍♀️', '🙍', '🙍‍♂️', '🙎‍♀️', '🙎', '🙎‍♂️', '🙅‍♀️',
-    '🙅', '🙅‍♂️', '🙆‍♀️', '🙆', '🙆‍♂️', '💁‍♀️', '💁', '💁‍♂️', '🙋‍♀️', '🙋',
-    '🙋‍♂️', '🙇‍♀️', '🙇', '🙇‍♂️', '🤦‍♀️', '🤦', '🤦‍♂️', '🤷‍♀️', '🤷', '🤷‍♂️',
-    '👩‍⚕️', '🧑‍⚕️', '👨‍⚕️', '👩‍🌾', '🧑‍🌾', '👨‍🌾', '👩‍🍳', '🧑‍🍳', '👨‍🍳', '👩‍🎓',
-    '🧑‍🎓', '👨‍🎓', '👩‍🎤', '🧑‍🎤', '👨‍🎤', '👩‍🏫', '🧑‍🏫', '👨‍🏫', '👩‍🏭', '🧑‍🏭',
-    '👨‍🏭', '👩‍💻', '🧑‍💻', '👨‍💻', '👩‍💼', '🧑‍💼', '👨‍💼', '👩‍🔧', '🧑‍🔧', '👨‍🔧',
-    '👩‍🔬', '🧑‍🔬', '👨‍🔬', '👩‍🎨', '🧑‍🎨', '👨‍🎨', '👩‍🚒', '🧑‍🚒', '👨‍🚒', '👩‍✈️',
-    '🧑‍✈️', '👨‍✈️', '👩‍🚀', '🧑‍🚀', '👨‍🚀', '👩‍⚖️', '🧑‍⚖️', '👨‍⚖️', '👰‍♀️', '👰',
-    '👰‍♂️', '🤵‍♀️', '🤵', '🤵‍♂️', '👸', '🤴', '🥷', '🦹‍♀️', '🦹', '🦹‍♂️',
-    '🦸‍♀️', '🦸', '🦸‍♂️', '🤶', '🎅', '👼', '🤱', '🤰', '👰‍♂️', '👰',
-    '👰‍♀️', '🤵‍♂️', '🤵', '🤵‍♀️', '👴', '🧓', '👵', '👨', '🧑', '👩',
-    '🧒', '👦', '👧', '👶', '🙊', '🙉', '🙈', '😾', '😿', '🙀',
-    '😽', '😼', '😻', '😹', '😸', '😺', '🤖', '👾', '👽', '💀',
-    '👻', '💩', '🤠', '🤑', '🤕', '🤒', '😷', '🤧', '🤮', '🤢',
-    '🥴', '🤐', '😵', '😪', '🤤', '🥱', '😲', '😮', '😧', '😦',
-    '😯', '😐', '😶', '🤥', '🤫', '🤭', '🤔', '🤗', '🤓', '🧐',
-    '🤨', '🤪', '😜', '😝', '😛', '😋', '😚', '😙', '😗', '😘',
-    '🥰', '😍', '😌', '😉', '🙃', '🙂', '😇', '😊', '🤣', '😂',
-    '😅', '😆', '😁', '😄', '😃', '😀'
-  ];
-
-  // Focus the editor when component mounts
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
+    setMounted(true);
   }, []);
 
-  // Handle keydown to prevent reverse text
-  const handleKeyDown = (e) => {
-    // Allow normal typing behavior for all keys
-    // Only handle Enter specially
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      document.execCommand('insertLineBreak', false, null);
-      if (onChange) {
-        onChange(editorRef.current.innerHTML);
-      }
+  useEffect(() => {
+    if (mounted && editorRef.current && !quill) {
+      // Dynamically import Quill only on client side
+      import('quill').then((Quill) => {
+        const QuillClass = Quill.default || Quill;
+        
+        // Configure Quill
+        const toolbarOptions = [
+          [{ 'header': [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          [{ 'indent': '-1'}, { 'indent': '+1' }],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'align': [] }],
+          ['link', 'image', 'code-block'],
+          ['clean']
+        ];
+
+        const newQuill = new QuillClass(editorRef.current, {
+          theme: 'snow',
+          modules: {
+            toolbar: toolbarOptions,
+            clipboard: {
+              matchVisual: false
+            }
+          },
+          placeholder: placeholder,
+          formats: [
+            'header',
+            'bold', 'italic', 'underline', 'strike',
+            'list', 'bullet',
+            'indent',
+            'color', 'background',
+            'align',
+            'link', 'image', 'code-block'
+          ]
+        });
+
+        // Set initial value
+        if (value) {
+          newQuill.root.innerHTML = value;
+        }
+
+        // Handle text changes
+        newQuill.on('text-change', () => {
+          if (onChange) {
+            onChange(newQuill.root.innerHTML);
+          }
+        });
+
+        setQuill(newQuill);
+      }).catch(console.error);
     }
-  };
+  }, [mounted, quill, value, onChange, placeholder]);
+
+  // Update content when value prop changes
+  useEffect(() => {
+    if (quill && value !== quill.root.innerHTML) {
+      quill.root.innerHTML = value || '';
+    }
+  }, [value, quill]);
+
+  if (!mounted) {
+    return (
+      <div className="border border-gray-300 rounded-lg">
+        <div className="border-b border-gray-300 p-3 bg-gray-50">
+          <div className="h-6 bg-gray-200 rounded animate-pulse"></div>
+        </div>
+        <div className="p-4 min-h-32 bg-gray-100 animate-pulse rounded">
+          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="border border-gray-300 rounded-lg">
-      {/* Toolbar */}
-      <div className="border-b border-gray-300 p-3 flex flex-wrap items-center gap-1 bg-gray-50">
-        <button
-          type="button"
-          onClick={() => execCommand('bold')}
-          className="p-2 rounded hover:bg-gray-200 font-bold text-gray-700"
-          title="Bold"
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('italic')}
-          className="p-2 rounded hover:bg-gray-200 italic text-gray-700"
-          title="Italic"
-        >
-          I
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('strikeThrough')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Strikethrough"
-        >
-          S̶
-        </button>
+      <div ref={editorRef} style={{ minHeight: '150px' }} />
+      <style jsx global>{`
+        .ql-editor {
+          min-height: 150px;
+          font-size: 14px;
+          line-height: 1.6;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-toolbar {
+          border-top: none;
+          border-left: none;
+          border-right: none;
+          border-bottom: 1px solid #d1d5db;
+          background-color: #f9fafb;
+          padding: 12px;
+        }
         
-        <button
-          type="button"
-          onClick={() => execCommand('insertOrderedList')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Numbered List"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/>
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('insertUnorderedList')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Bullet List"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
-          </svg>
-        </button>
+        .ql-container {
+          border: none;
+          font-family: inherit;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-editor.ql-blank::before {
+          color: #9ca3af;
+          font-style: italic;
+        }
         
-        <button
-          type="button"
-          onClick={() => execCommand('indent')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Indent"
-        >
-          ¶
-        </button>
+        .ql-editor {
+          padding: 16px;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-editor p {
+          margin-bottom: 8px;
+        }
         
-        <button
-          type="button"
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Insert Emoji"
-        >
-          😀
-        </button>
+        .ql-editor h1,
+        .ql-editor h2,
+        .ql-editor h3 {
+          margin-top: 16px;
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-editor h1 {
+          font-size: 1.5rem;
+        }
         
-        <button
-          type="button"
-          onClick={() => setShowLinkInput(!showLinkInput)}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Insert Link"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd"/>
-          </svg>
-        </button>
+        .ql-editor h2 {
+          font-size: 1.25rem;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-editor h3 {
+          font-size: 1.125rem;
+        }
         
-        <button
-          type="button"
-          onClick={() => setShowImageInput(!showImageInput)}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Insert Image"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
-          </svg>
-        </button>
+        .ql-editor ul,
+        .ql-editor ol {
+          padding-left: 20px;
+          margin-bottom: 8px;
+        }
         
-        <div className="border-l border-gray-400 h-6 mx-1"></div>
+        .ql-editor li {
+          margin-bottom: 4px;
+        }
         
-        <button
-          type="button"
-          onClick={() => execCommand('justifyLeft')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Align Left"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 8a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1zM3 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 16a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"/>
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('justifyCenter')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Align Center"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM5 8a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM5 16a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd"/>
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('justifyRight')}
-          className="p-2 rounded hover:bg-gray-200 text-gray-700"
-          title="Align Right"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM7 8a1 1 0 011-1h8a1 1 0 110 2H8a1 1 0 01-1-1zM3 12a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM7 16a1 1 0 011-1h8a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* Input Modals */}
-      {showEmojiPicker && (
-        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-md max-h-64 overflow-y-auto">
-          <div className="grid grid-cols-8 gap-1">
-            {emojis.map((emoji, index) => (
-              <button
-                key={index}
-                onClick={() => insertEmoji(emoji)}
-                className="p-2 hover:bg-gray-100 rounded text-lg"
-                title={emoji}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => setShowEmojiPicker(false)}
-            className="mt-2 w-full px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Close
-          </button>
-        </div>
-      )}
-
-      {showLinkInput && (
-        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
-          <h3 className="text-lg font-medium mb-2">Insert Link</h3>
-          <input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="Enter URL"
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyPress={(e) => e.key === 'Enter' && insertLink()}
-          />
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={insertLink}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Insert
-            </button>
-            <button
-              onClick={() => {
-                setShowLinkInput(false);
-                setLinkUrl('');
-              }}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showImageInput && (
-        <div className="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
-          <h3 className="text-lg font-medium mb-2">Insert Image</h3>
-          <input
-            type="url"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="Enter image URL"
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyPress={(e) => e.key === 'Enter' && insertImage()}
-          />
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={insertImage}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Insert
-            </button>
-            <button
-              onClick={() => {
-                setShowImageInput(false);
-                setImageUrl('');
-              }}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Editor */}
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-4 min-h-32 focus:outline-none bg-white prose max-w-none"
-        dangerouslySetInnerHTML={{ __html: value }}
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        style={{ minHeight: '150px' }}
-      />
+        .ql-editor a {
+          color: #2563eb;
+          text-decoration: underline;
+        }
+        
+        .ql-editor a:hover {
+          color: #1d4ed8;
+        }
+        
+        .ql-editor img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
+          margin: 8px 0;
+        }
+        
+        .ql-editor blockquote {
+          border-left: 4px solid #d1d5db;
+          padding-left: 16px;
+          margin: 16px 0;
+          font-style: italic;
+          color: #6b7280;
+        }
+        
+        .ql-editor code {
+          background-color: #f3f4f6;
+          padding: 2px 4px;
+          border-radius: 3px;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          font-size: 0.875em;
+        }
+        
+        .ql-editor pre {
+          background-color: #f3f4f6;
+          padding: 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+          margin: 8px 0;
+        }
+        
+        .ql-editor pre code {
+          background: none;
+          padding: 0;
+        }
+        
+        /* Toolbar button hover effects */
+        .ql-toolbar button:hover,
+        .ql-toolbar .ql-picker-label:hover {
+          color: #2563eb !important;
+        }
+        
+        .ql-toolbar button:hover .ql-stroke,
+        .ql-toolbar .ql-picker-label:hover .ql-stroke {
+          stroke: #2563eb !important;
+        }
+        
+        .ql-toolbar button:hover .ql-fill,
+        .ql-toolbar .ql-picker-label:hover .ql-fill {
+          fill: #2563eb !important;
+        }
+        
+        /* Active state for toolbar buttons */
+        .ql-toolbar .ql-active {
+          color: #2563eb !important;
+        }
+        
+        .ql-toolbar .ql-active .ql-stroke {
+          stroke: #2563eb !important;
+        }
+        
+        .ql-toolbar .ql-active .ql-fill {
+          fill: #2563eb !important;
+        }
+      `}</style>
     </div>
   );
 };
