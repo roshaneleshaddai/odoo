@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: 'https://odoo-5534.onrender.com/ap',
+  baseURL: 'https://odoo-5534.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
