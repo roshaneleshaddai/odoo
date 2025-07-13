@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> 74d5f06b7cd5e1ab75b04d68dde0197a9ac99a88
 # StackIt - Q&A Platform with Polls
 
 A modern, full-stack Q&A platform built with Next.js, Express.js, and MongoDB. Features include user authentication, question-answer system, real-time polls, rich text editing, and image uploads.
@@ -294,4 +298,8 @@ For support and questions:
 
 ---
 
+<<<<<<< HEAD
 **Happy Coding! 🚀** 
+=======
+**Happy Coding! 🚀** 
+>>>>>>> 74d5f06b7cd5e1ab75b04d68dde0197a9ac99a88
